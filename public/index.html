@@ -363,7 +363,6 @@
 </header>
 
 <main>
-  <!-- Video area -->
   <div id="video-area">
     <div id="video-wrapper">
 
@@ -379,7 +378,6 @@
     </div>
   </div>
 
-  <!-- Side panel -->
   <aside>
 
     <div class="panel-section">
@@ -440,13 +438,9 @@
 <script>
 (async () => {
   // ── Determine phone URL ──────────────────────────────────────────────────────
-  const host = location.hostname;
-  const port = location.port || 80;
-const isStandardPort = !port || port === '80' || port === '443';
-const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + port}/phone`;
+  const phoneURL = `${location.origin}/phone`;
 
   document.getElementById('phone-url-label').textContent = phoneURL;
-
   // QR code
   new QRCode(document.getElementById('qr-container'), {
     text: phoneURL,
@@ -477,7 +471,7 @@ const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + por
 
   // ── WebSocket ────────────────────────────────────────────────────────────────
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(port ? `${wsProto}://${host}:${port}` : `${wsProto}://${host}`);
+  const ws = new WebSocket(`${wsProto}://${location.host}`);
 
   let pc = null;
   let latencyTimer = null;
@@ -539,7 +533,6 @@ const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + por
         setStatus('🟢  Live', 'live');
         infoStatus.textContent = 'Live';
         connectTime = Date.now();
-
         videoEl.onloadedmetadata = () => {
           infoRes.textContent = `${videoEl.videoWidth}×${videoEl.videoHeight}`;
         };
@@ -564,7 +557,8 @@ const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + por
   }
 
   function stopStream() {
-    if (pc) { pc.close(); pc = null; }
+    if (pc) { pc.close();
+    pc = null; }
     videoEl.srcObject = null;
     videoEl.classList.remove('active');
     waitingEl.classList.remove('hidden');
@@ -596,7 +590,8 @@ const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + por
 
   // ── Controls ─────────────────────────────────────────────────────────────────
   function goFullscreen() {
-    const el = videoEl.classList.contains('active') ? videoEl : document.documentElement;
+    const el = videoEl.classList.contains('active') ?
+    videoEl : document.documentElement;
     if (el.requestFullscreen) el.requestFullscreen();
   }
 
