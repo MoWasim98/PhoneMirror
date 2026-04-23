@@ -442,7 +442,8 @@
   // ── Determine phone URL ──────────────────────────────────────────────────────
   const host = location.hostname;
   const port = location.port || 80;
-  const phoneURL = `http://${host}:${port}/phone`;
+  const isStandardPort = !port || port === '80' || port === '443';
+  const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + port}/phone`;
 
   document.getElementById('phone-url-label').textContent = phoneURL;
 
