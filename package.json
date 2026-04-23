@@ -1,0 +1,13 @@
+{
+  "name": "phonemirror",
+  "version": "1.0.0",
+  "description": "Mirror your phone screen to your laptop over WiFi",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  }
+}

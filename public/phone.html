@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>PhoneMirror — Phone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #080c10;
+    --surface: #0e1318;
+    --border:  #1e2a36;
+    --accent:  #00e5ff;
+    --accent2: #7c3aed;
+    --text:    #e2e8f0;
+    --muted:   #4a5568;
+    --green:   #22d3a5;
+    --red:     #f87171;
+    --orange:  #fb923c;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 36px 36px;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  /* ── Glow orb ── */
+  .orb {
+    position: fixed;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  .orb1 { background: var(--accent);  top: -80px;  left: -80px; }
+  .orb2 { background: var(--accent2); bottom: -80px; right: -80px; }
+
+  /* ── Wrapper ── */
+  .wrapper {
+    position: relative;
+    z-index: 10;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px;
+    gap: 20px;
+    text-align: center;
+  }
+
+  /* ── Logo ── */
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  /* ── Status ring ── */
+  .status-ring {
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: border-color 0.4s;
+  }
+
+  .status-ring.connecting {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(0,229,255,0.2);
+    animation: spin 2s linear infinite;
+  }
+
+  .status-ring.live {
+    border-color: var(--green);
+    box-shadow: 0 0 24px rgba(34,211,165,0.3);
+    animation: none;
+  }
+
+  .status-ring.error {
+    border-color: var(--red);
+    animation: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .ring-icon {
+    font-size: 38px;
+    animation: none;
+  }
+
+  .status-ring.connecting .ring-icon {
+    animation: spin 2s linear infinite reverse;
+  }
+
+  /* ── Text ── */
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    line-height: 1.5;
+    max-width: 280px;
+  }
+
+  /* ── Big action button ── */
+  #main-btn {
+    width: 100%;
+    max-width: 300px;
+    padding: 18px 24px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+    box-shadow: 0 4px 24px rgba(0,229,255,0.2);
+  }
+
+  #main-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.2s;
+  }
+
+  #main-btn:active::before { background: rgba(255,255,255,0.1); }
+  #main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #main-btn.stop {
+    background: linear-gradient(135deg, var(--red), #c2410c);
+    box-shadow: 0 4px 24px rgba(248,113,113,0.2);
+  }
+
+  /* ── Source picker ── */
+  #source-picker {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  #source-picker.visible { display: flex; }
+
+  .src-btn {
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
+  }
+
+  .src-btn:hover, .src-btn:active {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.06);
+  }
+
+  .src-icon { font-size: 22px; }
+
+  /* ── Tip ── */
+  .tip {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    max-width: 300px;
+    line-height: 1.5;
+  }
+
+  /* ── Live preview ── */
+  #preview {
+    width: 100%;
+    max-width: 300px;
+    border-radius: 12px;
+    border: 1px solid var(--green);
+    display: none;
+    background: #000;
+    box-shadow: 0 0 20px rgba(34,211,165,0.15);
+    transform: scaleX(-1); /* mirror front camera */
+  }
+
+  #preview.visible { display: block; }
+  #preview.screen { transform: none; }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="wrapper">
+  <div class="logo">
+    <div class="logo-icon">📱</div>
+    PhoneMirror
+  </div>
+
+  <div class="status-ring connecting" id="status-ring">
+    <span class="ring-icon" id="ring-icon">⏳</span>
+  </div>
+
+  <div>
+    <h1 id="heading">Connecting to laptop…</h1>
+    <p class="subtitle" id="subheading">Make sure both devices are on the same WiFi network</p>
+  </div>
+
+  <!-- Source picker shown before stream starts -->
+  <div id="source-picker">
+    <button class="src-btn" id="btn-screen">
+      <span class="src-icon">🖥️</span>
+      <div>
+        <div>Share Screen</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">Android Chrome recommended</div>
+      </div>
+    </button>
+    <button class="src-btn" id="btn-camera-back">
+      <span class="src-icon">📷</span>
+      <div>
+        <div>Back Camera</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">Works on all devices</div>
+      </div>
+    </button>
+    <button class="src-btn" id="btn-camera-front">
+      <span class="src-icon">🤳</span>
+      <div>
+        <div>Front Camera</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">Works on all devices</div>
+      </div>
+    </button>
+  </div>
+
+  <video id="preview" muted autoplay playsinline></video>
+
+  <button id="main-btn" disabled>Connecting…</button>
+
+  <p class="tip" id="tip">
+    iOS: Screen mirroring is not supported — use camera mode instead
+  </p>
+</div>
+
+<script>
+(async () => {
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const statusRing  = document.getElementById('status-ring');
+  const ringIcon    = document.getElementById('ring-icon');
+  const heading     = document.getElementById('heading');
+  const subheading  = document.getElementById('subheading');
+  const mainBtn     = document.getElementById('main-btn');
+  const sourcePicker = document.getElementById('source-picker');
+  const preview     = document.getElementById('preview');
+  const tip         = document.getElementById('tip');
+
+  let pc = null;
+  let localStream = null;
+  let streaming = false;
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function setUI(state) {
+    statusRing.className = 'status-ring ' + state;
+    const icons = { connecting: '⏳', ready: '✅', live: '📡', error: '❌' };
+    ringIcon.textContent = icons[state] || '📡';
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  const host = location.hostname;
+  const port = location.port || 80;
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${wsProto}://${host}:${port}`);
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'register', role: 'sender' }));
+  });
+
+  ws.addEventListener('message', async (evt) => {
+    const msg = JSON.parse(evt.data);
+
+    if (msg.type === 'peer-ready' && msg.role === 'receiver') {
+      heading.textContent = 'Laptop is ready!';
+      subheading.textContent = 'Choose what to share:';
+      setUI('ready');
+      mainBtn.disabled = false;
+      mainBtn.textContent = '▶ Start Mirroring';
+      sourcePicker.classList.add('visible');
+      return;
+    }
+
+    if (msg.type === 'peer-disconnected') {
+      heading.textContent = 'Laptop disconnected';
+      subheading.textContent = 'Open the receiver on your laptop again';
+      setUI('error');
+      stopStream();
+      return;
+    }
+
+    if (msg.type === 'answer' && pc) {
+      await pc.setRemoteDescription(new RTCSessionDescription(msg));
+    }
+
+    if (msg.type === 'ice-candidate' && pc && msg.candidate) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+    }
+  });
+
+  ws.addEventListener('close', () => {
+    heading.textContent = 'Connection lost';
+    setUI('error');
+  });
+
+  // ── Source buttons ────────────────────────────────────────────────────────
+  document.getElementById('btn-screen').addEventListener('click', () => startStream('screen'));
+  document.getElementById('btn-camera-back').addEventListener('click', () => startStream('back'));
+  document.getElementById('btn-camera-front').addEventListener('click', () => startStream('front'));
+
+  mainBtn.addEventListener('click', () => {
+    if (streaming) {
+      stopStream();
+      heading.textContent = 'Laptop is ready!';
+      subheading.textContent = 'Choose what to share:';
+      sourcePicker.classList.add('visible');
+      setUI('ready');
+      mainBtn.textContent = '▶ Start Mirroring';
+      mainBtn.classList.remove('stop');
+    }
+  });
+
+  // ── Stream capture ────────────────────────────────────────────────────────
+  async function startStream(mode) {
+    try {
+      sourcePicker.classList.remove('visible');
+      heading.textContent = 'Starting capture…';
+      setUI('connecting');
+
+      if (mode === 'screen') {
+        localStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: 30 },
+          audio: false
+        });
+        preview.classList.add('screen');
+      } else {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: mode === 'front' ? 'user' : 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        });
+        preview.classList.remove('screen');
+      }
+
+      // Show preview
+      preview.srcObject = localStream;
+      preview.classList.add('visible');
+
+      await createPeerConnection();
+      await startWebRTC();
+
+      streaming = true;
+      heading.textContent = '🟢 Streaming Live';
+      subheading.textContent = 'Your screen is visible on the laptop';
+      setUI('live');
+      mainBtn.textContent = '■ Stop Mirroring';
+      mainBtn.classList.add('stop');
+      mainBtn.disabled = false;
+
+      // Handle stream ending (user stops share from browser UI)
+      localStream.getTracks().forEach(t => {
+        t.addEventListener('ended', () => {
+          if (streaming) stopStream();
+        });
+      });
+
+    } catch (err) {
+      console.error(err);
+      heading.textContent = 'Failed to capture';
+      subheading.textContent = err.message || 'Permission denied or not supported';
+      setUI('error');
+      sourcePicker.classList.add('visible');
+    }
+  }
+
+  // ── WebRTC ────────────────────────────────────────────────────────────────
+  async function createPeerConnection() {
+    pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
+
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+    pc.onicecandidate = (evt) => {
+      if (evt.candidate) {
+        ws.send(JSON.stringify({ type: 'ice-candidate', candidate: evt.candidate }));
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        if (streaming) {
+          setUI('error');
+          heading.textContent = 'Connection dropped';
+        }
+      }
+    };
+  }
+
+  async function startWebRTC() {
+    const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ ...offer }));
+  }
+
+  function stopStream() {
+    streaming = false;
+    if (localStream) {
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = null;
+    }
+    if (pc) { pc.close(); pc = null; }
+    preview.srcObject = null;
+    preview.classList.remove('visible');
+  }
+
+  // Initial state
+  heading.textContent = 'Connecting to laptop…';
+  subheading.textContent = 'Make sure both devices are on the same WiFi';
+})();
+</script>
+</body>
+</html>

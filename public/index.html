@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PhoneMirror — Receiver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #080c10;
+    --surface: #0e1318;
+    --border:  #1e2a36;
+    --accent:  #00e5ff;
+    --accent2: #7c3aed;
+    --text:    #e2e8f0;
+    --muted:   #4a5568;
+    --green:   #22d3a5;
+    --red:     #f87171;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Background grid ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,12,16,0.85);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  #status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .dot.waiting  { background: var(--accent); animation: pulse 1.5s infinite; }
+  .dot.live     { background: var(--green); animation: pulse 1.5s infinite; }
+  .dot.error    { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  /* ── Main layout ── */
+  main {
+    position: relative;
+    z-index: 5;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── Video area ── */
+  #video-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+  }
+
+  #video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-height: calc(100vh - 70px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  video#stream {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 0 60px rgba(0,229,255,0.08);
+    display: none;
+    object-fit: contain;
+    background: #000;
+  }
+
+  video#stream.active { display: block; }
+
+  /* ── Waiting screen ── */
+  #waiting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+  }
+
+  #waiting.hidden { display: none; }
+
+  .scanner-ring {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--accent);
+    border-right-color: var(--accent2);
+    animation: spin 1.2s linear infinite;
+    position: relative;
+  }
+
+  .scanner-ring::after {
+    content: '📡';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    animation: spin 1.2s linear infinite reverse;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #waiting h2 {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  #waiting p {
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── Side panel ── */
+  aside {
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  .panel-section h3 {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* ── QR code ── */
+  #qr-container {
+    background: #fff;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #qr-container canvas, #qr-container img {
+    display: block;
+    max-width: 100%;
+  }
+
+  .phone-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    word-break: break-all;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  /* ── Stats ── */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+
+  .stat-label {
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  /* ── Controls ── */
+  .ctrl-btn {
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .ctrl-btn:hover {
+    background: var(--border);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .ctrl-btn.danger:hover {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  /* ── Instructions ── */
+  .step {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .step-num {
+    min-width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  /* ── Fullscreen video overlay ── */
+  #fullscreen-btn {
+    position: absolute;
+    bottom: 36px;
+    right: 36px;
+    width: 38px; height: 38px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(14,19,24,0.85);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 20;
+  }
+
+  #fullscreen-btn.visible { display: flex; }
+  #fullscreen-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Scrollbar */
+  aside::-webkit-scrollbar { width: 4px; }
+  aside::-webkit-scrollbar-track { background: transparent; }
+  aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    PhoneMirror
+  </div>
+  <div id="status-badge">
+    <div class="dot waiting" id="status-dot"></div>
+    <span id="status-text">Waiting for phone…</span>
+  </div>
+</header>
+
+<main>
+  <!-- Video area -->
+  <div id="video-area">
+    <div id="video-wrapper">
+
+      <div id="waiting">
+        <div class="scanner-ring"></div>
+        <h2>Waiting for phone</h2>
+        <p>Scan the QR code or open the URL →</p>
+      </div>
+
+      <video id="stream" autoplay playsinline></video>
+      <button id="fullscreen-btn" title="Fullscreen">⛶</button>
+
+    </div>
+  </div>
+
+  <!-- Side panel -->
+  <aside>
+
+    <div class="panel-section">
+      <h3>Connect Phone</h3>
+      <div id="qr-container"></div>
+      <p class="phone-url" id="phone-url-label">Generating URL…</p>
+    </div>
+
+    <div class="panel-section">
+      <h3>How to Use</h3>
+      <div class="step">
+        <div class="step-num">1</div>
+        <span>Both devices on the same WiFi network</span>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <span>On your phone, scan the QR code or type the URL</span>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <span>Tap <strong style="color:var(--text)">Start Mirroring</strong> on your phone and allow screen/camera access</span>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <span>Your screen appears here instantly</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Stream Info</h3>
+      <div class="stat-row">
+        <span class="stat-label">Status</span>
+        <span class="stat-value" id="info-status">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Resolution</span>
+        <span class="stat-value" id="info-res">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Mode</span>
+        <span class="stat-value" id="info-mode">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Latency</span>
+        <span class="stat-value" id="info-latency">—</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Controls</h3>
+      <button class="ctrl-btn" id="fs-btn">⛶ &nbsp;Fullscreen</button>
+      <button class="ctrl-btn danger" id="disconnect-btn">✕ &nbsp;Disconnect</button>
+    </div>
+
+  </aside>
+</main>
+
+<script>
+(async () => {
+  // ── Determine phone URL ──────────────────────────────────────────────────────
+  const host = location.hostname;
+  const port = location.port || 80;
+  const phoneURL = `http://${host}:${port}/phone`;
+
+  document.getElementById('phone-url-label').textContent = phoneURL;
+
+  // QR code
+  new QRCode(document.getElementById('qr-container'), {
+    text: phoneURL,
+    width: 220,
+    height: 220,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  // ── UI refs ─────────────────────────────────────────────────────────────────
+  const videoEl      = document.getElementById('stream');
+  const waitingEl    = document.getElementById('waiting');
+  const statusDot    = document.getElementById('status-dot');
+  const statusText   = document.getElementById('status-text');
+  const fsBtn        = document.getElementById('fullscreen-btn');
+  const fsBtn2       = document.getElementById('fs-btn');
+  const disconnBtn   = document.getElementById('disconnect-btn');
+  const infoStatus   = document.getElementById('info-status');
+  const infoRes      = document.getElementById('info-res');
+  const infoMode     = document.getElementById('info-mode');
+  const infoLatency  = document.getElementById('info-latency');
+
+  function setStatus(label, dotClass) {
+    statusText.textContent = label;
+    statusDot.className = `dot ${dotClass}`;
+  }
+
+  // ── WebSocket ────────────────────────────────────────────────────────────────
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${wsProto}://${host}:${port}`);
+
+  let pc = null;
+  let latencyTimer = null;
+  let connectTime = null;
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'register', role: 'receiver' }));
+    setStatus('Waiting for phone…', 'waiting');
+  });
+
+  ws.addEventListener('message', async (evt) => {
+    const msg = JSON.parse(evt.data);
+
+    if (msg.type === 'peer-ready' && msg.role === 'sender') {
+      setStatus('Phone connected — setting up…', 'waiting');
+      infoStatus.textContent = 'Handshaking';
+      await createPeerConnection();
+      return;
+    }
+
+    if (msg.type === 'peer-disconnected') {
+      setStatus('Phone disconnected', 'error');
+      infoStatus.textContent = 'Disconnected';
+      stopStream();
+      return;
+    }
+
+    if (!pc) return;
+
+    if (msg.type === 'offer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(msg));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ ...answer }));
+    }
+
+    if (msg.type === 'ice-candidate' && msg.candidate) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+    }
+  });
+
+  ws.addEventListener('close', () => setStatus('Server disconnected', 'error'));
+
+  // ── WebRTC ───────────────────────────────────────────────────────────────────
+  async function createPeerConnection() {
+    pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
+
+    pc.ontrack = (evt) => {
+      if (evt.streams && evt.streams[0]) {
+        videoEl.srcObject = evt.streams[0];
+        videoEl.classList.add('active');
+        waitingEl.classList.add('hidden');
+        fsBtn.classList.add('visible');
+        setStatus('🟢  Live', 'live');
+        infoStatus.textContent = 'Live';
+        connectTime = Date.now();
+
+        videoEl.onloadedmetadata = () => {
+          infoRes.textContent = `${videoEl.videoWidth}×${videoEl.videoHeight}`;
+        };
+      }
+    };
+
+    pc.onicecandidate = (evt) => {
+      if (evt.candidate) {
+        ws.send(JSON.stringify({ type: 'ice-candidate', candidate: evt.candidate }));
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        startLatencyTracker();
+      }
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        setStatus('Connection lost', 'error');
+        stopStream();
+      }
+    };
+  }
+
+  function stopStream() {
+    if (pc) { pc.close(); pc = null; }
+    videoEl.srcObject = null;
+    videoEl.classList.remove('active');
+    waitingEl.classList.remove('hidden');
+    fsBtn.classList.remove('visible');
+    infoRes.textContent = '—';
+    infoMode.textContent = '—';
+    infoLatency.textContent = '—';
+    clearInterval(latencyTimer);
+  }
+
+  function startLatencyTracker() {
+    clearInterval(latencyTimer);
+    latencyTimer = setInterval(async () => {
+      if (!pc) return;
+      const stats = await pc.getStats();
+      stats.forEach(report => {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          const rtt = report.currentRoundTripTime;
+          if (rtt !== undefined) {
+            infoLatency.textContent = `${Math.round(rtt * 1000)} ms`;
+          }
+        }
+        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          infoMode.textContent = report.decoderImplementation || 'WebRTC';
+        }
+      });
+    }, 1500);
+  }
+
+  // ── Controls ─────────────────────────────────────────────────────────────────
+  function goFullscreen() {
+    const el = videoEl.classList.contains('active') ? videoEl : document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+  }
+
+  fsBtn.addEventListener('click', goFullscreen);
+  fsBtn2.addEventListener('click', goFullscreen);
+
+  disconnBtn.addEventListener('click', () => {
+    ws.send(JSON.stringify({ type: 'force-disconnect' }));
+    stopStream();
+    setStatus('Disconnected', 'error');
+  });
+})();
+</script>
+</body>
+</html>
