@@ -323,7 +323,7 @@
   const host = location.hostname;
   const port = location.port || 80;
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${wsProto}://${host}:${port}`);
+  const ws = new WebSocket(port ? `${wsProto}://${host}:${port}` : `${wsProto}://${host}`);
 
   ws.addEventListener('open', () => {
     ws.send(JSON.stringify({ type: 'register', role: 'sender' }));
