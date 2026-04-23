@@ -505,11 +505,19 @@
       await pc.setRemoteDescription(new RTCSessionDescription(msg));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ ...answer }));
+      // SENDING ANSWER BACK TO PHONE
+      ws.send(JSON.stringify({ 
+        type: 'answer', 
+        sdp: answer.sdp 
+      }));
     }
 
     if (msg.type === 'ice-candidate' && msg.candidate) {
-      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+      try { 
+        await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); 
+      } catch(e) {
+        console.error("Error adding ICE candidate", e);
+      }
     }
   });
 
