@@ -442,8 +442,8 @@
   // ── Determine phone URL ──────────────────────────────────────────────────────
   const host = location.hostname;
   const port = location.port || 80;
-  const isStandardPort = !port || port === '80' || port === '443';
-  const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + port}/phone`;
+const isStandardPort = !port || port === '80' || port === '443';
+const phoneURL = `${location.protocol}//${host}${isStandardPort ? '' : ':' + port}/phone`;
 
   document.getElementById('phone-url-label').textContent = phoneURL;
 
@@ -477,7 +477,7 @@
 
   // ── WebSocket ────────────────────────────────────────────────────────────────
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${wsProto}://${host}:${port}`);
+  const ws = new WebSocket(port ? `${wsProto}://${host}:${port}` : `${wsProto}://${host}`);
 
   let pc = null;
   let latencyTimer = null;
